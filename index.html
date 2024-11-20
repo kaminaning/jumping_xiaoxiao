@@ -1,22 +1,42 @@
 <html>
-    <body>
-        
-    </body>
-    <script>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+<script>
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d');
 
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-const BASE_UNIT = isMobile ? Math.min(window.innerWidth, window.innerHeight) / 8 : 40;
+const devicePixelRatio = window.devicePixelRatio || 1;
+const BASE_UNIT = isMobile ? 40 * devicePixelRatio : 40;
 
 function setGameDimensions() {
+    const screenWidth = window.innerWidth * devicePixelRatio;
+    const screenHeight = window.innerHeight * devicePixelRatio;
+
     if (isMobile) {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        canvas.width = screenWidth;
+        canvas.height = screenHeight;
     } else {
-        canvas.width = 360;
-        canvas.height = 760;
+        canvas.width = 360 * devicePixelRatio;
+        canvas.height = 760 * devicePixelRatio;
     }
+
+    canvas.style.width = `${canvas.width / devicePixelRatio}px`;
+    canvas.style.height = `${canvas.height / devicePixelRatio}px`;
+
+    ctx.scale(devicePixelRatio, devicePixelRatio);
 
     GAME_CONSTANTS.PLATFORM_WIDTH = BASE_UNIT * 1.5;
     GAME_CONSTANTS.PLATFORM_HEIGHT = BASE_UNIT * 0.4;
@@ -48,7 +68,7 @@ const GAME_CONSTANTS = {
     NITRO_BOOST_FORCE: -BASE_UNIT * 0.5,
     NITRO_SCORE_BONUS: 50,
     NITRO_SPAWN_CHANCE: 0.2,
-    MAX_NITROS: 3,  // 最多3个氮气
+    MAX_NITROS: 3,
     PLATFORM_DENSITY: 0.8
 };
 
@@ -61,16 +81,16 @@ function createResponsiveButton() {
     
     nitroButton.innerHTML = '使用氮气 (0)';
     nitroButton.style.position = 'fixed';
-    nitroButton.style.bottom = `${BASE_UNIT}px`;
-    nitroButton.style.right = `${BASE_UNIT}px`;
-    nitroButton.style.padding = `${BASE_UNIT * 0.25}px ${BASE_UNIT * 0.5}px`;
-    nitroButton.style.fontSize = `${BASE_UNIT * 0.5}px`;
-    nitroButton.style.width = `${buttonSize * 2}px`;
-    nitroButton.style.height = `${buttonSize}px`;
+    nitroButton.style.bottom = `${BASE_UNIT / devicePixelRatio}px`;
+    nitroButton.style.right = `${BASE_UNIT / devicePixelRatio}px`;
+    nitroButton.style.padding = `${BASE_UNIT * 0.25 / devicePixelRatio}px ${BASE_UNIT * 0.5 / devicePixelRatio}px`;
+    nitroButton.style.fontSize = `${BASE_UNIT * 0.5 / devicePixelRatio}px`;
+    nitroButton.style.width = `${buttonSize * 2 / devicePixelRatio}px`;
+    nitroButton.style.height = `${buttonSize / devicePixelRatio}px`;
     nitroButton.style.backgroundColor = '#4CAF50';
     nitroButton.style.color = 'white';
     nitroButton.style.border = 'none';
-    nitroButton.style.borderRadius = `${BASE_UNIT * 0.25}px`;
+    nitroButton.style.borderRadius = `${BASE_UNIT * 0.25 / devicePixelRatio}px`;
     nitroButton.style.cursor = 'pointer';
     
     return nitroButton;
@@ -80,8 +100,8 @@ const nitroButton = createResponsiveButton();
 document.body.appendChild(nitroButton);
 
 let player = {
-    x: canvas.width / 2,
-    y: canvas.height - GAME_CONSTANTS.PLAYER_SIZE * 2,
+    x: canvas.width / 2 / devicePixelRatio,
+    y: canvas.height / devicePixelRatio - GAME_CONSTANTS.PLAYER_SIZE * 2,
     velocityY: 0,
     velocityX: 0,
     nitroCount: 0
@@ -158,12 +178,12 @@ function createBoostEffect() {
 
 function initPlatforms() {
     platforms.push({
-        x: canvas.width / 2 - GAME_CONSTANTS.PLATFORM_WIDTH / 2,
-        y: canvas.height - 50,
+        x: canvas.width / 2 / devicePixelRatio - GAME_CONSTANTS.PLATFORM_WIDTH / 2,
+        y: canvas.height / devicePixelRatio - 50,
         type: 'normal'
     });
 
-    let currentY = canvas.height - 50;
+    let currentY = canvas.height / devicePixelRatio - 50;
     while (currentY > 0) {
         currentY -= GAME_CONSTANTS.MIN_PLATFORM_SPACING + 
                    Math.random() * (GAME_CONSTANTS.MAX_PLATFORM_SPACING - GAME_CONSTANTS.MIN_PLATFORM_SPACING);
@@ -174,11 +194,11 @@ function initPlatforms() {
             let attempts = 0;
             
             do {
-                newX = Math.random() * (canvas.width - GAME_CONSTANTS.PLATFORM_WIDTH);
+                newX = Math.random() * (canvas.width / devicePixelRatio - GAME_CONSTANTS.PLATFORM_WIDTH);
                 attempts++;
                 if (attempts > 10) {
                     newX = lastPlatform.x + (Math.random() * 2 - 1) * GAME_CONSTANTS.MAX_HORIZONTAL_DISTANCE;
-                    newX = Math.max(0, Math.min(newX, canvas.width - GAME_CONSTANTS.PLATFORM_WIDTH));
+                    newX = Math.max(0, Math.min(newX, canvas.width / devicePixelRatio - GAME_CONSTANTS.PLATFORM_WIDTH));
                     break;
                 }
             } while (!isPlatformSpacingValid(newX, currentY));
@@ -208,12 +228,12 @@ function generatePlatform() {
     let attempts = 0;
     
     do {
-        newX = Math.random() * (canvas.width - GAME_CONSTANTS.PLATFORM_WIDTH);
+        newX = Math.random() * (canvas.width / devicePixelRatio - GAME_CONSTANTS.PLATFORM_WIDTH);
         attempts++;
         
         if (attempts > 10) {
             newX = lastPlatform.x + (Math.random() * 2 - 1) * GAME_CONSTANTS.MAX_HORIZONTAL_DISTANCE;
-            newX = Math.max(0, Math.min(newX, canvas.width - GAME_CONSTANTS.PLATFORM_WIDTH));
+            newX = Math.max(0, Math.min(newX, canvas.width / devicePixelRatio - GAME_CONSTANTS.PLATFORM_WIDTH));
             break;
         }
     } while (!isPlatformSpacingValid(newX, newY));
@@ -226,13 +246,11 @@ function generatePlatform() {
 
     platforms.push(newPlatform);
 
-    // 修改：只在当前氮气数量少于最大值时生成新的氮气
     if (Math.random() < GAME_CONSTANTS.NITRO_SPAWN_CHANCE && 
         nitros.length < GAME_CONSTANTS.MAX_NITROS) {
-        // 修改：确保氮气放置在平台上且不与平台重叠
         const nitroX = newPlatform.x + 
                       (GAME_CONSTANTS.PLATFORM_WIDTH - GAME_CONSTANTS.NITRO_SIZE) * Math.random();
-        const nitroY = newPlatform.y - GAME_CONSTANTS.NITRO_SIZE - 2; // 平台上方2像素，确保不重叠
+        const nitroY = newPlatform.y - GAME_CONSTANTS.NITRO_SIZE - 2;
         
         nitros.push({
             x: nitroX,
@@ -246,7 +264,7 @@ function checkSpecialScores() {
         specialMessages.push({
             text: "坚持就是胜利！继续加油！",
             time: 180,
-            y: canvas.height / 2
+            y: canvas.height / 2 / devicePixelRatio
         });
         easterEggs.score250 = true;
     }
@@ -255,7 +273,7 @@ function checkSpecialScores() {
         specialMessages.push({
             text: "我爱你！❤️",
             time: 180,
-            y: canvas.height / 2
+            y: canvas.height / 2 / devicePixelRatio
         });
         easterEggs.score520 = true;
     }
@@ -286,7 +304,6 @@ function checkNitroCollection() {
             player.y < nitro.y + GAME_CONSTANTS.NITRO_SIZE &&
             player.y + GAME_CONSTANTS.PLAYER_SIZE > nitro.y) {
             
-            // 修改：只在未达到最大氮气数量时收集
             if (player.nitroCount < GAME_CONSTANTS.MAX_NITROS) {
                 nitros.splice(i, 1);
                 player.nitroCount++;
@@ -304,12 +321,12 @@ function update() {
     player.x += player.velocityX;
 
     if (player.x < 0) {
-        player.x = canvas.width;
-    } else if (player.x > canvas.width) {
+        player.x = canvas.width / devicePixelRatio;
+    } else if (player.x > canvas.width / devicePixelRatio) {
         player.x = 0;
     }
 
-    if (player.y > canvas.height) {
+    if (player.y > canvas.height / devicePixelRatio) {
         gameOver = true;
     }
 
@@ -320,8 +337,8 @@ function update() {
         }
     });
 
-    if (player.y < canvas.height / 2) {
-        let diff = canvas.height / 2 - player.y;
+    if (player.y < canvas.height / devicePixelRatio / 2) {
+        let diff = canvas.height / devicePixelRatio / 2 - player.y;
         player.y += diff;
         
         platforms.forEach(platform => {
@@ -337,7 +354,7 @@ function update() {
         });
         
         platforms = platforms.filter(platform => {
-            if (platform.y > canvas.height) {
+            if (platform.y > canvas.height / devicePixelRatio) {
                 score++;
                 checkSpecialScores();
                 generatePlatform();
@@ -346,9 +363,8 @@ function update() {
             return true;
         });
         
-        nitros = nitros.filter(nitro => nitro.y <= canvas.height);
+        nitros = nitros.filter(nitro => nitro.y <= canvas.height / devicePixelRatio);
     }
-
     while (platforms.length < 10) {
         generatePlatform();
     }
@@ -358,7 +374,7 @@ function update() {
 }
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width / devicePixelRatio, canvas.height / devicePixelRatio);
 
     ctx.fillStyle = '#00ff00';
     ctx.fillRect(
@@ -393,25 +409,25 @@ function draw() {
 
     specialMessages.forEach(msg => {
         ctx.fillStyle = `rgba(255, 0, 0, ${msg.time / 180})`;
-        ctx.font = `${BASE_UNIT * 0.75}px Arial`;
+        ctx.font = `${BASE_UNIT * 0.75 / devicePixelRatio}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText(msg.text, canvas.width/2, msg.y);
+        ctx.fillText(msg.text, canvas.width / devicePixelRatio / 2, msg.y);
     });
 
     ctx.fillStyle = '#000';
-    ctx.font = `${BASE_UNIT * 0.5}px Arial`;
+    ctx.font = `${BASE_UNIT * 0.5 / devicePixelRatio}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText(`Score: ${score}`, BASE_UNIT * 0.25, BASE_UNIT);
+    ctx.fillText(`Score: ${score}`, BASE_UNIT * 0.25 / devicePixelRatio, BASE_UNIT / devicePixelRatio);
 
     if (gameOver) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, canvas.width / devicePixelRatio, canvas.height / devicePixelRatio);
         ctx.fillStyle = '#fff';
-        ctx.font = `${BASE_UNIT}px Arial`;
+        ctx.font = `${BASE_UNIT / devicePixelRatio}px Arial`;
         ctx.textAlign = 'center';
-        ctx.fillText('Game Over!', canvas.width/2, canvas.height/2);
-        ctx.font = `${BASE_UNIT * 0.5}px Arial`;
-        ctx.fillText(`Final Score: ${score}`, canvas.width/2, canvas.height/2 + BASE_UNIT);
+        ctx.fillText('Game Over!', canvas.width / devicePixelRatio / 2, canvas.height / devicePixelRatio / 2);
+        ctx.font = `${BASE_UNIT * 0.5 / devicePixelRatio}px Arial`;
+        ctx.fillText(`Final Score: ${score}`, canvas.width / devicePixelRatio / 2, canvas.height / devicePixelRatio / 2 + BASE_UNIT / devicePixelRatio);
     }
 }
 
@@ -448,13 +464,25 @@ window.addEventListener('deviceorientation', (e) => {
     }
 });
 
+// 添加触摸控制
+let touchStartX = 0;
+canvas.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+});
+
+canvas.addEventListener('touchmove', (e) => {
+    const touchX = e.touches[0].clientX;
+    const diff = touchX - touchStartX;
+    player.velocityX = (diff / 50) * GAME_CONSTANTS.MOVE_SPEED;
+    e.preventDefault(); // 防止页面滚动
+});
+
+canvas.addEventListener('touchend', () => {
+    player.velocityX = 0;
+});
+
 initPlatforms();
 gameLoop();
-    </script>
-    <style>
-        html,body{
-            margin: 0;
-            padding: 0;
-        }
-    </style>
+</script>
+</body>
 </html>
