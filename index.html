@@ -18,8 +18,8 @@ const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d');
 
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-const devicePixelRatio = window.devicePixelRatio || 1;
-const BASE_UNIT = isMobile ? 40 * devicePixelRatio : 40;
+const devicePixelRatio = 1;
+const BASE_UNIT = 40;
 
 function setGameDimensions() {
     const screenWidth = window.innerWidth * devicePixelRatio;
