@@ -3,55 +3,85 @@
         
     </body>
     <script>
- // Canvas setup with responsive dimensions
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d');
 
-// 响应式设置画布尺寸
-function setCanvasDimensions() {
-    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const BASE_UNIT = isMobile ? Math.min(window.innerWidth, window.innerHeight) / 8 : 40;
+
+function setGameDimensions() {
+    if (isMobile) {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
     } else {
         canvas.width = 360;
         canvas.height = 760;
     }
+
+    GAME_CONSTANTS.PLATFORM_WIDTH = BASE_UNIT * 1.5;
+    GAME_CONSTANTS.PLATFORM_HEIGHT = BASE_UNIT * 0.4;
+    GAME_CONSTANTS.PLAYER_SIZE = BASE_UNIT;
+    GAME_CONSTANTS.NITRO_SIZE = BASE_UNIT * 0.75;
+    
+    GAME_CONSTANTS.GRAVITY = BASE_UNIT * 0.005;
+    GAME_CONSTANTS.JUMP_FORCE = -BASE_UNIT * 0.25;
+    GAME_CONSTANTS.MOVE_SPEED = BASE_UNIT * 0.125;
+    
+    GAME_CONSTANTS.MIN_PLATFORM_SPACING = BASE_UNIT * 1.5;
+    GAME_CONSTANTS.MAX_PLATFORM_SPACING = BASE_UNIT * 2.25;
+    GAME_CONSTANTS.MIN_HORIZONTAL_SPACING = BASE_UNIT * 2;
+    GAME_CONSTANTS.MAX_HORIZONTAL_DISTANCE = canvas.width * 0.7;
 }
 
-setCanvasDimensions();
-window.addEventListener('resize', setCanvasDimensions);
-document.body.appendChild(canvas);
-
-// Game constants
-const GRAVITY = 0.2;
-const JUMP_FORCE = -10;
-const MOVE_SPEED = 5;
-const PLATFORM_WIDTH = 60;
-const PLATFORM_HEIGHT = 15;
-const PLAYER_WIDTH = 40;
-const PLAYER_HEIGHT = 40;
-const NITRO_SIZE = 30;
-const NITRO_BOOST_FORCE = -20;
-const NITRO_SCORE_BONUS = 50;
-const NITRO_SPAWN_CHANCE = 0.05;
-const MAX_NITROS = 3;
-
-// Platform generation constants
-const MIN_PLATFORM_SPACING = 60;
-const MAX_PLATFORM_SPACING = 90;
-const MIN_HORIZONTAL_SPACING = 80;
-const MAX_HORIZONTAL_DISTANCE = canvas.width * 0.7;
-const PLATFORM_DENSITY = 0.8;
-// 添加一个状态对象来跟踪彩蛋触发状态
-const easterEggs = {
-    score250: false,
-    score520: false
+const GAME_CONSTANTS = {
+    PLATFORM_WIDTH: BASE_UNIT * 1.5,
+    PLATFORM_HEIGHT: BASE_UNIT * 0.4,
+    PLAYER_SIZE: BASE_UNIT,
+    NITRO_SIZE: BASE_UNIT * 0.75,
+    GRAVITY: BASE_UNIT * 0.005,
+    JUMP_FORCE: -BASE_UNIT * 0.25,
+    MOVE_SPEED: BASE_UNIT * 0.125,
+    MIN_PLATFORM_SPACING: BASE_UNIT * 1.5,
+    MAX_PLATFORM_SPACING: BASE_UNIT * 2.25,
+    MIN_HORIZONTAL_SPACING: BASE_UNIT * 2,
+    MAX_HORIZONTAL_DISTANCE: canvas.width * 0.7,
+    NITRO_BOOST_FORCE: -BASE_UNIT * 0.5,
+    NITRO_SCORE_BONUS: 50,
+    NITRO_SPAWN_CHANCE: 0.2,
+    MAX_NITROS: 3,  // 最多3个氮气
+    PLATFORM_DENSITY: 0.8
 };
 
-// Game state
+setGameDimensions();
+document.body.appendChild(canvas);
+
+function createResponsiveButton() {
+    const nitroButton = document.createElement('button');
+    const buttonSize = isMobile ? BASE_UNIT * 2 : BASE_UNIT * 1.5;
+    
+    nitroButton.innerHTML = '使用氮气 (0)';
+    nitroButton.style.position = 'fixed';
+    nitroButton.style.bottom = `${BASE_UNIT}px`;
+    nitroButton.style.right = `${BASE_UNIT}px`;
+    nitroButton.style.padding = `${BASE_UNIT * 0.25}px ${BASE_UNIT * 0.5}px`;
+    nitroButton.style.fontSize = `${BASE_UNIT * 0.5}px`;
+    nitroButton.style.width = `${buttonSize * 2}px`;
+    nitroButton.style.height = `${buttonSize}px`;
+    nitroButton.style.backgroundColor = '#4CAF50';
+    nitroButton.style.color = 'white';
+    nitroButton.style.border = 'none';
+    nitroButton.style.borderRadius = `${BASE_UNIT * 0.25}px`;
+    nitroButton.style.cursor = 'pointer';
+    
+    return nitroButton;
+}
+
+const nitroButton = createResponsiveButton();
+document.body.appendChild(nitroButton);
+
 let player = {
     x: canvas.width / 2,
-    y: canvas.height - 100,
+    y: canvas.height - GAME_CONSTANTS.PLAYER_SIZE * 2,
     velocityY: 0,
     velocityX: 0,
     nitroCount: 0
@@ -63,60 +93,45 @@ let score = 0;
 let gameOver = false;
 let specialMessages = [];
 
-// 创建氮气使用按钮
-const nitroButton = document.createElement('button');
-nitroButton.innerHTML = '使用氮气 (0)';
-nitroButton.style.position = 'fixed';
-nitroButton.style.bottom = '20px';
-nitroButton.style.right = '20px';
-nitroButton.style.padding = '10px 20px';
-nitroButton.style.fontSize = '18px';
-nitroButton.style.backgroundColor = '#4CAF50';
-nitroButton.style.color = 'white';
-nitroButton.style.border = 'none';
-nitroButton.style.borderRadius = '5px';
-nitroButton.style.cursor = 'pointer';
-document.body.appendChild(nitroButton);
+const easterEggs = {
+    score250: false,
+    score520: false
+};
 
-// 检查平台间距是否合适
 function isPlatformSpacingValid(newX, newY) {
     return platforms.every(platform => {
         const horizontalDistance = Math.abs(newX - platform.x);
         const verticalDistance = Math.abs(newY - platform.y);
         
-        // 检查垂直和水平间距
-        if (verticalDistance < MIN_PLATFORM_SPACING) {
+        if (verticalDistance < GAME_CONSTANTS.MIN_PLATFORM_SPACING) {
             return false;
         }
         
-        // 如果垂直距离在合理范围内，检查水平间距
-        if (verticalDistance < MAX_PLATFORM_SPACING) {
-            return horizontalDistance >= MIN_HORIZONTAL_SPACING &&
-                   horizontalDistance <= MAX_HORIZONTAL_DISTANCE;
+        if (verticalDistance < GAME_CONSTANTS.MAX_PLATFORM_SPACING) {
+            return horizontalDistance >= GAME_CONSTANTS.MIN_HORIZONTAL_SPACING &&
+                   horizontalDistance <= GAME_CONSTANTS.MAX_HORIZONTAL_DISTANCE;
         }
         
         return true;
     });
 }
 
-// 氮气使用事件
 nitroButton.addEventListener('click', () => {
     if (player.nitroCount > 0 && !gameOver) {
-        player.velocityY = NITRO_BOOST_FORCE;
+        player.velocityY = GAME_CONSTANTS.NITRO_BOOST_FORCE;
         player.nitroCount--;
-        score += NITRO_SCORE_BONUS;
+        score += GAME_CONSTANTS.NITRO_SCORE_BONUS;
         nitroButton.innerHTML = `使用氮气 (${player.nitroCount})`;
         createBoostEffect();
     }
 });
 
-// 创建加速特效
 function createBoostEffect() {
     const effect = {
         x: player.x,
         y: player.y,
         alpha: 1,
-        size: PLAYER_WIDTH * 2
+        size: GAME_CONSTANTS.PLAYER_SIZE * 2
     };
     
     const animateEffect = () => {
@@ -125,7 +140,9 @@ function createBoostEffect() {
         ctx.save();
         ctx.globalAlpha = effect.alpha;
         ctx.beginPath();
-        ctx.arc(effect.x + PLAYER_WIDTH/2, effect.y + PLAYER_HEIGHT/2, effect.size, 0, Math.PI * 2);
+        ctx.arc(effect.x + GAME_CONSTANTS.PLAYER_SIZE/2, 
+                effect.y + GAME_CONSTANTS.PLAYER_SIZE/2, 
+                effect.size, 0, Math.PI * 2);
         ctx.fillStyle = '#4CAF50';
         ctx.fill();
         ctx.restore();
@@ -139,31 +156,29 @@ function createBoostEffect() {
     animateEffect();
 }
 
-// 初始化平台
 function initPlatforms() {
-    // 第一个平台
     platforms.push({
-        x: canvas.width / 2 - PLATFORM_WIDTH / 2,
+        x: canvas.width / 2 - GAME_CONSTANTS.PLATFORM_WIDTH / 2,
         y: canvas.height - 50,
         type: 'normal'
     });
 
-    // 生成初始平台
     let currentY = canvas.height - 50;
     while (currentY > 0) {
-        currentY -= MIN_PLATFORM_SPACING + Math.random() * (MAX_PLATFORM_SPACING - MIN_PLATFORM_SPACING);
+        currentY -= GAME_CONSTANTS.MIN_PLATFORM_SPACING + 
+                   Math.random() * (GAME_CONSTANTS.MAX_PLATFORM_SPACING - GAME_CONSTANTS.MIN_PLATFORM_SPACING);
         
-        if (Math.random() < PLATFORM_DENSITY) {
+        if (Math.random() < GAME_CONSTANTS.PLATFORM_DENSITY) {
             let lastPlatform = platforms[platforms.length - 1];
             let newX;
             let attempts = 0;
             
             do {
-                newX = Math.random() * (canvas.width - PLATFORM_WIDTH);
+                newX = Math.random() * (canvas.width - GAME_CONSTANTS.PLATFORM_WIDTH);
                 attempts++;
                 if (attempts > 10) {
-                    newX = lastPlatform.x + (Math.random() * 2 - 1) * MAX_HORIZONTAL_DISTANCE;
-                    newX = Math.max(0, Math.min(newX, canvas.width - PLATFORM_WIDTH));
+                    newX = lastPlatform.x + (Math.random() * 2 - 1) * GAME_CONSTANTS.MAX_HORIZONTAL_DISTANCE;
+                    newX = Math.max(0, Math.min(newX, canvas.width - GAME_CONSTANTS.PLATFORM_WIDTH));
                     break;
                 }
             } while (!isPlatformSpacingValid(newX, currentY));
@@ -177,33 +192,28 @@ function initPlatforms() {
     }
 }
 
-// 生成新平台 - 修改后的函数
 function generatePlatform() {
     const lastPlatform = platforms[platforms.length - 1];
-    
-    // 确保总是在最后一个平台的上方生成新平台
     const minY = Math.min(...platforms.map(p => p.y));
     const maxY = Math.max(...platforms.map(p => p.y));
     
-    // 根据最后一个平台的位置计算新平台的y坐标
-    let newY = lastPlatform.y - (MIN_PLATFORM_SPACING + 
-               Math.random() * (MAX_PLATFORM_SPACING - MIN_PLATFORM_SPACING));
+    let newY = lastPlatform.y - (GAME_CONSTANTS.MIN_PLATFORM_SPACING + 
+               Math.random() * (GAME_CONSTANTS.MAX_PLATFORM_SPACING - GAME_CONSTANTS.MIN_PLATFORM_SPACING));
                
-    // 确保新平台的y坐标不会太接近已有平台
-    while (platforms.some(p => Math.abs(p.y - newY) < MIN_PLATFORM_SPACING)) {
-        newY -= MIN_PLATFORM_SPACING;
+    while (platforms.some(p => Math.abs(p.y - newY) < GAME_CONSTANTS.MIN_PLATFORM_SPACING)) {
+        newY -= GAME_CONSTANTS.MIN_PLATFORM_SPACING;
     }
     
     let newX;
     let attempts = 0;
     
     do {
-        newX = Math.random() * (canvas.width - PLATFORM_WIDTH);
+        newX = Math.random() * (canvas.width - GAME_CONSTANTS.PLATFORM_WIDTH);
         attempts++;
         
         if (attempts > 10) {
-            newX = lastPlatform.x + (Math.random() * 2 - 1) * MAX_HORIZONTAL_DISTANCE;
-            newX = Math.max(0, Math.min(newX, canvas.width - PLATFORM_WIDTH));
+            newX = lastPlatform.x + (Math.random() * 2 - 1) * GAME_CONSTANTS.MAX_HORIZONTAL_DISTANCE;
+            newX = Math.max(0, Math.min(newX, canvas.width - GAME_CONSTANTS.PLATFORM_WIDTH));
             break;
         }
     } while (!isPlatformSpacingValid(newX, newY));
@@ -216,39 +226,41 @@ function generatePlatform() {
 
     platforms.push(newPlatform);
 
-    // 在平台上生成氮气，位置稍微偏移确保不会卡住
-    if (Math.random() < NITRO_SPAWN_CHANCE && nitros.length < MAX_NITROS) {
+    // 修改：只在当前氮气数量少于最大值时生成新的氮气
+    if (Math.random() < GAME_CONSTANTS.NITRO_SPAWN_CHANCE && 
+        nitros.length < GAME_CONSTANTS.MAX_NITROS) {
+        // 修改：确保氮气放置在平台上且不与平台重叠
+        const nitroX = newPlatform.x + 
+                      (GAME_CONSTANTS.PLATFORM_WIDTH - GAME_CONSTANTS.NITRO_SIZE) * Math.random();
+        const nitroY = newPlatform.y - GAME_CONSTANTS.NITRO_SIZE - 2; // 平台上方2像素，确保不重叠
+        
         nitros.push({
-            x: newPlatform.x + PLATFORM_WIDTH/2 - NITRO_SIZE/2,
-            y: newPlatform.y - NITRO_SIZE - 5  // 在平台正上方5个像素处
+            x: nitroX,
+            y: nitroY
         });
     }
 }
 
-// 修改检查特殊分数的函数
 function checkSpecialScores() {
-    // 检查250分彩蛋
     if (!easterEggs.score250 && score >= 250) {
         specialMessages.push({
-            text: "你是sb",
+            text: "坚持就是胜利！继续加油！",
             time: 180,
             y: canvas.height / 2
         });
-        easterEggs.score250 = true;  // 标记为已触发
+        easterEggs.score250 = true;
     }
     
-    // 检查520分彩蛋
     if (!easterEggs.score520 && score >= 520) {
         specialMessages.push({
             text: "我爱你！❤️",
             time: 180,
             y: canvas.height / 2
         });
-        easterEggs.score520 = true;  // 标记为已触发
+        easterEggs.score520 = true;
     }
 }
 
-// 更新特殊消息
 function updateSpecialMessages() {
     for (let i = specialMessages.length - 1; i >= 0; i--) {
         specialMessages[i].time--;
@@ -258,40 +270,39 @@ function updateSpecialMessages() {
     }
 }
 
-// 检测碰撞
 function checkCollision(platform) {
-    return player.y + PLAYER_HEIGHT > platform.y &&
-           player.y + PLAYER_HEIGHT < platform.y + PLATFORM_HEIGHT &&
-           player.x + PLAYER_WIDTH > platform.x &&
-           player.x < platform.x + PLATFORM_WIDTH &&
+    return player.y + GAME_CONSTANTS.PLAYER_SIZE > platform.y &&
+           player.y + GAME_CONSTANTS.PLAYER_SIZE < platform.y + GAME_CONSTANTS.PLATFORM_HEIGHT &&
+           player.x + GAME_CONSTANTS.PLAYER_SIZE > platform.x &&
+           player.x < platform.x + GAME_CONSTANTS.PLATFORM_WIDTH &&
            player.velocityY > 0;
 }
 
-// 检测氮气收集
 function checkNitroCollection() {
     for (let i = nitros.length - 1; i >= 0; i--) {
         const nitro = nitros[i];
-        if (player.x < nitro.x + NITRO_SIZE &&
-            player.x + PLAYER_WIDTH > nitro.x &&
-            player.y < nitro.y + NITRO_SIZE &&
-            player.y + PLAYER_HEIGHT > nitro.y) {
+        if (player.x < nitro.x + GAME_CONSTANTS.NITRO_SIZE &&
+            player.x + GAME_CONSTANTS.PLAYER_SIZE > nitro.x &&
+            player.y < nitro.y + GAME_CONSTANTS.NITRO_SIZE &&
+            player.y + GAME_CONSTANTS.PLAYER_SIZE > nitro.y) {
             
-            nitros.splice(i, 1);
-            player.nitroCount++;
-            nitroButton.innerHTML = `使用氮气 (${player.nitroCount})`;
+            // 修改：只在未达到最大氮气数量时收集
+            if (player.nitroCount < GAME_CONSTANTS.MAX_NITROS) {
+                nitros.splice(i, 1);
+                player.nitroCount++;
+                nitroButton.innerHTML = `使用氮气 (${player.nitroCount})`;
+            }
         }
     }
 }
 
-// 更新游戏状态
 function update() {
     if (gameOver) return;
 
-    player.velocityY += GRAVITY;
+    player.velocityY += GAME_CONSTANTS.GRAVITY;
     player.y += player.velocityY;
     player.x += player.velocityX;
 
-    // 水平边界检查
     if (player.x < 0) {
         player.x = canvas.width;
     } else if (player.x > canvas.width) {
@@ -304,17 +315,15 @@ function update() {
 
     platforms.forEach(platform => {
         if (checkCollision(platform)) {
-            player.velocityY = JUMP_FORCE;
-            player.y = platform.y - PLAYER_HEIGHT;
+            player.velocityY = GAME_CONSTANTS.JUMP_FORCE;
+            player.y = platform.y - GAME_CONSTANTS.PLAYER_SIZE;
         }
     });
 
-    // 相机跟随 - 修改后的逻辑
     if (player.y < canvas.height / 2) {
         let diff = canvas.height / 2 - player.y;
         player.y += diff;
         
-        // 移动所有平台和相关元素
         platforms.forEach(platform => {
             platform.y += diff;
         });
@@ -327,23 +336,20 @@ function update() {
             msg.y += diff;
         });
         
-        // 检查并移除超出屏幕的平台，同时生成新平台
         platforms = platforms.filter(platform => {
             if (platform.y > canvas.height) {
                 score++;
                 checkSpecialScores();
-                generatePlatform();  // 生成新平台
+                generatePlatform();
                 return false;
             }
             return true;
         });
         
-        // 移除超出屏幕的氮气
         nitros = nitros.filter(nitro => nitro.y <= canvas.height);
     }
 
-    // 确保始终有足够的平台
-    while (platforms.length < 10) {  // 保持至少10个平台
+    while (platforms.length < 10) {
         generatePlatform();
     }
 
@@ -351,68 +357,80 @@ function update() {
     updateSpecialMessages();
 }
 
-// 绘制游戏
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 绘制玩家
     ctx.fillStyle = '#00ff00';
-    ctx.fillRect(player.x, player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+    ctx.fillRect(
+        player.x, 
+        player.y, 
+        GAME_CONSTANTS.PLAYER_SIZE, 
+        GAME_CONSTANTS.PLAYER_SIZE
+    );
 
-    // 绘制平台
     ctx.fillStyle = '#795548';
     platforms.forEach(platform => {
-        ctx.fillRect(platform.x, platform.y, PLATFORM_WIDTH, PLATFORM_HEIGHT);
+        ctx.fillRect(
+            platform.x, 
+            platform.y, 
+            GAME_CONSTANTS.PLATFORM_WIDTH, 
+            GAME_CONSTANTS.PLATFORM_HEIGHT
+        );
     });
 
-    // 绘制氮气
     ctx.fillStyle = '#00ffff';
     nitros.forEach(nitro => {
         ctx.beginPath();
-        ctx.arc(nitro.x + NITRO_SIZE/2, nitro.y + NITRO_SIZE/2, NITRO_SIZE/2, 0, Math.PI * 2);
+        ctx.arc(
+            nitro.x + GAME_CONSTANTS.NITRO_SIZE/2, 
+            nitro.y + GAME_CONSTANTS.NITRO_SIZE/2, 
+            GAME_CONSTANTS.NITRO_SIZE/2, 
+            0, 
+            Math.PI * 2
+        );
         ctx.fill();
     });
 
-    // 绘制特殊消息
     specialMessages.forEach(msg => {
         ctx.fillStyle = `rgba(255, 0, 0, ${msg.time / 180})`;
-        ctx.font = '30px Arial';
+        ctx.font = `${BASE_UNIT * 0.75}px Arial`;
         ctx.textAlign = 'center';
         ctx.fillText(msg.text, canvas.width/2, msg.y);
     });
 
-    // 绘制分数
     ctx.fillStyle = '#000';
-    ctx.font = '20px Arial';
+    ctx.font = `${BASE_UNIT * 0.5}px Arial`;
     ctx.textAlign = 'left';
-    ctx.fillText(`Score: ${score}`, 10, 30);
+    ctx.fillText(`Score: ${score}`, BASE_UNIT * 0.25, BASE_UNIT);
 
-    // 游戏结束显示
     if (gameOver) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#fff';
-        ctx.font = '40px Arial';
+        ctx.font = `${BASE_UNIT}px Arial`;
         ctx.textAlign = 'center';
         ctx.fillText('Game Over!', canvas.width/2, canvas.height/2);
-        ctx.font = '20px Arial';
-        ctx.fillText(`Final Score: ${score}`, canvas.width/2, canvas.height/2 + 40);
+        ctx.font = `${BASE_UNIT * 0.5}px Arial`;
+        ctx.fillText(`Final Score: ${score}`, canvas.width/2, canvas.height/2 + BASE_UNIT);
     }
 }
 
-// 游戏循环
 function gameLoop() {
     update();
     draw();
     requestAnimationFrame(gameLoop);
 }
 
-// 键盘控制
+window.addEventListener('resize', () => {
+    setGameDimensions();
+    initPlatforms();
+});
+
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') {
-        player.velocityX = -MOVE_SPEED;
+        player.velocityX = -GAME_CONSTANTS.MOVE_SPEED;
     } else if (e.key === 'ArrowRight') {
-        player.velocityX = MOVE_SPEED;
+        player.velocityX = GAME_CONSTANTS.MOVE_SPEED;
     } else if (e.key === ' ') {
         nitroButton.click();
     }
@@ -424,14 +442,12 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
-// 移动设备倾斜控制
 window.addEventListener('deviceorientation', (e) => {
     if (e.gamma) {
-        player.velocityX = (e.gamma / 90) * MOVE_SPEED;
+        player.velocityX = (e.gamma / 90) * GAME_CONSTANTS.MOVE_SPEED;
     }
 });
 
-// 开始游戏
 initPlatforms();
 gameLoop();
     </script>
